@@ -5,6 +5,11 @@
 #include <pqxx/pqxx>
 #include "JSONData.hpp"
 
+#define DB_HOST		"logs.cegwdkw512mn.us-east-2.rds.amazonaws.com"
+#define DB_NAME		"logs_mk"
+#define DB_USER		"pkssAdmin"
+#define DB_PASSWORD	"pkssAdmin1"
+
 class HeatExchangerData: public JSONData {
 private:
 	std::map<std::string,float> log;

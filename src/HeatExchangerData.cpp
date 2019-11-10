@@ -40,7 +40,8 @@ std::string HeatExchangerData::getTempString() {
 
 
 void HeatExchangerData::insertLastIntoDB() {
-	pqxx::connection C("host = localhost dbname = pkssdatalog user = pkssservice password = kolek");;
+	const std::string params = "host = " + std::string(DB_HOST) +" dbname = " + std::string(DB_NAME) + " user = " + std::string(DB_USER) + " password = " + std::string(DB_PASSWORD);
+	pqxx::connection C(params.c_str());
 	pqxx::work W(C);
 
 	std::string timestamp = (--log.end())->first, status = "running";

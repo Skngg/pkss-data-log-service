@@ -10,6 +10,8 @@
 #include "JSONData.hpp"
 
 
+
+
 using namespace Pistache;
 using namespace rapidjson;
 
@@ -91,7 +93,9 @@ int main() {
 	Address addr(Ipv4::any(),Port(8080));
 	auto opts = Http::Endpoint::options().threads(1);
 
-	pqxx::connection c("host = localhost dbname = pkssdatalog user = pkssservice password = kolek");
+//	pqxx::connection c("host = logs.cegwdkw512mn.us-east-2.rds.amazonaws.com dbname = logs_mk user = pkssAdmin password = pkssAdmin1");
+	const std::string params = "host = " + std::string(DB_HOST) +" dbname = " + std::string(DB_NAME) + " user = " + std::string(DB_USER) + " password = " + std::string(DB_PASSWORD);
+	pqxx::connection c(params.c_str());
 
 	if(c.is_open())
 		std::cout << "DB Succesfull" << std::endl;
