@@ -2,6 +2,8 @@
 
 using namespace rapidjson;
 
+unsigned int HeatExchangerData::dbID(1);
+
 void HeatExchangerData::acquireData(const char* json) {
 
 	data.Parse(json);
@@ -34,4 +36,23 @@ std::string HeatExchangerData::getTempString() {
 
 	return std::to_string(s.GetFloat());
 
+}
+
+
+void HeatExchangerData::insertLastIntoDB() {
+	pqxx::connection C("host = localhost dbname = pkssdatalog user = pkssservice password = kolek");;
+	pqxx::work W(C);
+
+	std::string timestamp = (--log.end())->first, status = "running";
+	float temperature = log.end()->second;
+	unsigned int id = dbID++;
+	log.erase(timestamp);
+	W.exec0(
+			"INSERT INTO exchanger "
+			"VALUES (" + W.quote(id) + ", " +
+			W.quote(status) + ", " +
+			W.quote(timestamp) + ")"
+	);
+
+	W.commit();
 }

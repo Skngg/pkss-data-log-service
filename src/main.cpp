@@ -3,6 +3,7 @@
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
+#include <pqxx/pqxx>
 
 
 #include "HeatExchangerData.hpp"
@@ -28,13 +29,13 @@ public:
     			body = request.body();
     			heatex1.acquireData(body.c_str());
 
-    			auto res = response.send(Pistache::Http::Code::Ok,heatex1.getTempString().c_str());
+    			heatex1.insertLastIntoDB();
+
+    			auto res = response.send(Http::Code::Ok,heatex1.getTempString().c_str());
 
     		}
 
     		else if (request.resource() == "/heatprov") {
-
-//    			response.send(Pistache::Http::Code::Ok,heatex1.getTempString().c_str());
 
     		} else {
     			response.send(Pistache::Http::Code::Not_Found,"Called nonexistent resource\n");
@@ -90,12 +91,18 @@ int main() {
 	Address addr(Ipv4::any(),Port(8080));
 	auto opts = Http::Endpoint::options().threads(1);
 
+	pqxx::connection c("host = localhost dbname = pkssdatalog user = pkssservice password = kolek");
+
+	if(c.is_open())
+		std::cout << "DB Succesfull" << std::endl;
 
 
 	Http::Endpoint server(addr);
 	server.init(opts);
 
 	std::cout << "SERVICE STARTED" << std::endl;
+
+
 
 	server.setHandler(Http::make_handler<TestHandler>());
 	server.serve();
