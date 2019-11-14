@@ -12,15 +12,20 @@
 
 class HeatExchangerData: public JSONData {
 private:
-	std::map<std::string,float> log;
-	static unsigned int dbID;
+	std::vector<std::string> status;
+	std::vector<std::string> supply_temp;
+	std::vector<std::string> returnMPC_temp;
+	std::vector<std::string> timestamp;
+//	static unsigned int dbID;
 public:
 	void acquireData(const char* json);
-	float getTemp();
-	std::string getTempString();
+	std::string getStatus();
+	std::string getSupplyTemp();
+	std::string getReturnMPCTemp();
 	std::string getTimestamp();
-	std::map<std::string,float> getFullLog();
 	void insertLastIntoDB();
+	void purgeLastEntry();
+	void initDBTable();
 };
 
 #endif /* HEATEXCHANGERDATA_HPP_ */
