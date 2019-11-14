@@ -64,7 +64,7 @@ void HeatExchangerData::insertLastIntoDB() {
 
 	W.exec0(
 			"INSERT INTO exchanger (status, supply_temp, returnMPC_temp, timestamp) "
-			"VALUES (" + /*W.quote(id) + ", " +*/
+			"VALUES (" +
 			W.quote(status) + ", " +
 			W.quote(supply_temp) + ", " +
 			W.quote(returnMPC_temp) +", " +

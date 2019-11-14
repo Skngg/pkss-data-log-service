@@ -115,47 +115,121 @@ public:
 					response.send(Http::Code::Ok, s.GetString(), mimeType);
 
     			} else if ((request.resource().find("/num") != std::string::npos)) {
+    				const std::string req = request.resource();
+					int length = 0;
+					for(int i=req.length();req.c_str()[i]!='/';i--) {
+						length++;
+					}
+					int num = std::stoi(req.substr(req.length()-length+1, length-1));
+
+					pqxx::connection C(params.c_str());
+					pqxx::work W(C);
+
+					pqxx::result res = W.exec(
+							"SELECT * FROM exchanger ORDER BY id DESC LIMIT "
+									+ W.quote(num));
+
+					W.commit();
+
+					StringBuffer s;
+					Writer<StringBuffer> writer(s);
+
+					const std::string	s_status("status"),
+										s_supply_temp("supply_temp"),
+										s_returnMPC_temp("returnMPC_temp"),
+										s_timestamp("timestamp");
+
+					std::string	v_status,
+								v_supply_temp,
+								v_returnMPC_temp,
+								v_timestamp;
+
+					writer.StartArray();
+
+					for (auto row_data : res) {
+						writer.StartObject();
+						v_status = row_data[1].as<std::string>();
+						v_supply_temp = row_data[2].as<std::string>();
+						v_returnMPC_temp = row_data[3].as<std::string>();
+						v_timestamp = row_data[4].as<std::string>();
+
+						writer.String(s_status.c_str(),s_status.length());
+						writer.String(v_status.c_str(),v_status.length());
+
+						writer.String(s_supply_temp.c_str(),s_supply_temp.length());
+						writer.String(v_supply_temp.c_str(),v_supply_temp.length());
+
+						writer.String(s_returnMPC_temp.c_str(),s_returnMPC_temp.length());
+						writer.String(v_returnMPC_temp.c_str(),v_returnMPC_temp.length());
+
+						writer.String(s_timestamp.c_str(),s_timestamp.length());
+						writer.String(v_timestamp.c_str(),v_timestamp.length());
+
+						writer.EndObject();
+					}
+
+					writer.EndArray();
+
+					auto mimeType = MIME(Application, Json);
+					response.send(Http::Code::Ok, s.GetString(), mimeType);
+
+
 
     			} else {		// GET FULL LOG
 
-//    			OLD SYSTEM FOR GETTING LOGS
-//
-//    			std::map<std::string,float> logs = heatex.getFullLog();
-//
-//    			StringBuffer s;
-//				Writer<StringBuffer> writer(s);
-//
-//				writer.StartArray();
-//
-//				const std::string	s_status("status"),
-//									s_supply_temp("supply_temp"),
-//									s_returnMPC_temp("returnMPC_temp"),
-//									s_timestamp("timestamp");
-//
-//				for(std::map<std::string,float>::iterator it = logs.begin();it!=logs.end();it++) {
-//					writer.StartObject();
-//					const std::string tmp = it->first;
-//					const float tmp_val = it->second;
-//					writer.String(time.c_str(), static_cast<SizeType>(time.length()));
-//					writer.String(tmp.c_str(),static_cast<SizeType>(tmp.length()));
-//
-//					writer.String(val.c_str(),static_cast<SizeType>(val.length()));
-//					writer.Double(tmp_val);
-//					writer.EndObject();
-//				}
-//
-//				writer.EndArray();
-//
-//    			std::string out = s.GetString();
-//
-//
-//				auto mimeType = MIME(Application, Json);
-//
-//
-//    			response.send(Http::Code::Ok, out, mimeType);
-//
+    				pqxx::connection C(params.c_str());
+					pqxx::work W(C);
+
+					pqxx::result res = W.exec(
+							"SELECT * FROM exchanger ORDER BY id DESC");
+
+					W.commit();
+
+					StringBuffer s;
+					Writer<StringBuffer> writer(s);
+
+					const std::string	s_status("status"),
+										s_supply_temp("supply_temp"),
+										s_returnMPC_temp("returnMPC_temp"),
+										s_timestamp("timestamp");
+
+					std::string	v_status,
+								v_supply_temp,
+								v_returnMPC_temp,
+								v_timestamp;
+
+					writer.StartArray();
+
+					for (auto row_data : res) {
+						writer.StartObject();
+						v_status = row_data[1].as<std::string>();
+						v_supply_temp = row_data[2].as<std::string>();
+						v_returnMPC_temp = row_data[3].as<std::string>();
+						v_timestamp = row_data[4].as<std::string>();
+
+						writer.String(s_status.c_str(),s_status.length());
+						writer.String(v_status.c_str(),v_status.length());
+
+						writer.String(s_supply_temp.c_str(),s_supply_temp.length());
+						writer.String(v_supply_temp.c_str(),v_supply_temp.length());
+
+						writer.String(s_returnMPC_temp.c_str(),s_returnMPC_temp.length());
+						writer.String(v_returnMPC_temp.c_str(),v_returnMPC_temp.length());
+
+						writer.String(s_timestamp.c_str(),s_timestamp.length());
+						writer.String(v_timestamp.c_str(),v_timestamp.length());
+
+						writer.EndObject();
+					}
+
+					writer.EndArray();
+
+					auto mimeType = MIME(Application, Json);
+					response.send(Http::Code::Ok, s.GetString(), mimeType);
 
     			}
+    		} else {
+    			response.send(Http::Code::Not_Found, "Called nonexistent resource\n");
     		}
     	} else {
     		response.send(Http::Code::Method_Not_Allowed,"Access denied");
@@ -168,10 +242,12 @@ public:
 
 int main() {
 
-	Address addr(Ipv4::any(),Port(8080));
+	Address addr(IP(0,0,0,0),Port(8080));
 	auto opts = Http::Endpoint::options()
 								.threads(1)
 								.flags(Tcp::Options::ReuseAddr);
+
+	std::cout << addr.host() << std::endl;
 
 //	pqxx::connection c("host = logs.cegwdkw512mn.us-east-2.rds.amazonaws.com dbname = logs_mk user = pkssAdmin password = pkssAdmin1");
 
