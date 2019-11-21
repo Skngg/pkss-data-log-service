@@ -7,20 +7,97 @@
 
 
 #include "HeatExchangerData.hpp"
-#include "JSONData.hpp"
-
-
-
+#include "ControllerData.hpp"
+#include "BuildingData.hpp"
 
 using namespace Pistache;
 using namespace rapidjson;
 
-static const std::string params =	"host = " + std::string(DB_HOST) +
-									" dbname = " + std::string(DB_NAME) +
-									" user = " + std::string(DB_USER) +
-									" password = " + std::string(DB_PASSWORD);
-
 HeatExchangerData heatex;
+ControllerData controller;
+BuildingData buildings;
+
+std::string processPOST(JSONData* instance, std::string body) {
+	instance->acquireData(body.c_str());
+	try {
+		instance->insertLastIntoDB();
+	} catch (const std::exception &) {
+		instance->initDBTable();
+		instance->insertLastIntoDB();
+	}
+
+	const std::string ret = "Data logged with timestamp: " + instance->getTimestamp();
+	instance->purgeAll();
+	return ret;
+
+}
+
+void processGETOne(StringBuffer* s, pqxx::result* row_data) {
+	Writer<StringBuffer> writer(*s);
+
+	std::vector<std::string> names, values;
+
+	for(int i = 1; i<row_data->columns(); i++) {
+		names.push_back(row_data->column_name(i));
+		values.push_back(row_data->at(0).at(i).as<std::string>());
+	}
+
+	writer.StartObject();
+
+	for(int i = 0;i<names.size();i++) {
+		writer.String(names[i].c_str(),names[i].length());
+		writer.String(values[i].c_str(),values[i].length());
+	}
+
+	writer.EndObject();
+
+}
+
+void processGETMany(StringBuffer* s, pqxx::result* res_data) {
+	Writer<StringBuffer> writer(*s);
+
+	std::vector<std::string> names, values;
+	writer.StartArray();
+
+	for(int i = res_data->size()-1; i>=0 ; i--) {
+		for(int j = 1; j<res_data->columns(); j++) {
+			names.push_back(res_data->column_name(j));
+			values.push_back(res_data->at(i).at(j).as<std::string>());
+		}
+
+		writer.StartObject();
+
+		for(int j = 0;j<names.size();j++) {
+			writer.String(names[j].c_str(),names[j].length());
+			writer.String(values[j].c_str(),values[j].length());
+		}
+
+		writer.EndObject();
+
+		names.clear();
+		values.clear();
+	}
+	writer.EndArray();
+}
+
+
+
+int getIntFromRequest(std::string request) {
+	int length = 0;
+	for(int i=request.length();request.c_str()[i]!='/';i--) {
+		length++;
+	}
+	return std::stoi(request.substr(request.length()-length+1, length-1));
+}
+
+std::string getStrFromRequest(std::string request) {
+	int length = 0;
+	for(int i=request.length();request.c_str()[i]!='/';i--) {
+		length++;
+	}
+
+	return request.substr(request.length()-length+1, length-1);
+}
 
 class TestHandler : public Http::Handler {
 private:
@@ -41,134 +118,77 @@ public:
     				auto res = response.send(Http::Code::Unprocessable_Entity,"Error while parsing JSON");
     				return;
     			}
-    			heatex.acquireData(body.c_str());
 
-    			const std::string s_response = "Data logged with timestamp: " + heatex.getTimestamp();
-
-    			try {
-    				heatex.insertLastIntoDB();
-    			} catch (const std::exception &) {
-					heatex.initDBTable();
-					heatex.insertLastIntoDB();
-				}
+    			const std::string s_response = processPOST(&heatex, body);
 
     			auto res = response.send(Http::Code::Ok,s_response.c_str());
 
-    		} else if (request.resource() == "/provider/log") {
+    		} else if (request.resource() == "/controler/log") {
 
-    			body = request.body();
+    			try {
+					body = request.body();
+					if (body == "")
+						throw "JSON error";
+				} catch (...){
+					auto res = response.send(Http::Code::Unprocessable_Entity,"Error while parsing JSON");
+					return;
+				}
+				const std::string s_response = processPOST(&controller, body);
 
+				auto res = response.send(Http::Code::Ok,s_response.c_str());
+
+    		} else if (request.resource() == "/building/log") {
+
+    			try {
+					body = request.body();
+					if (body == "")
+						throw "JSON error";
+				} catch (...){
+					auto res = response.send(Http::Code::Unprocessable_Entity,"Error while parsing JSON");
+					return;
+				}
+				const std::string s_response = processPOST(&buildings, body);
+
+				auto res = response.send(Http::Code::Ok,s_response.c_str());
 
     		} else {
-    			response.send(Pistache::Http::Code::Not_Found,"Called nonexistent resource\n");
+    			response.send(Pistache::Http::Code::Not_Found,"Error 404: Called nonexistent resource");
     		}
 
     	} else if (request.method() == Http::Method::Get) {
     		if(request.resource().find("/exchanger") != std::string::npos ) {
     			if(request.resource().find("/id") != std::string::npos) {
-    				const std::string req = request.resource();
-    				int length = 0;
-    				for(int i=req.length();req.c_str()[i]!='/';i--) {
-    					length++;
-    				}
-    				int id = std::stoi(req.substr(req.length()-length+1, length-1));
+
+    				int id = getIntFromRequest(request.resource());
 
     				pqxx::connection C(params.c_str());
 					pqxx::work W(C);
-
-					pqxx::row row_data = W.exec1(
+					pqxx::result row_data = W.exec(
 							"SELECT * FROM exchanger WHERE id = "
 									+ W.quote(id));
-
 					W.commit();
 
 					StringBuffer s;
-					Writer<StringBuffer> writer(s);
 
-					const std::string	s_status("status"),
-										s_supply_temp("supply_temp"),
-										s_returnMPC_temp("returnMPC_temp"),
-										s_timestamp("timestamp");
-
-					const std::string	v_status = row_data[1].as<std::string>(),
-										v_supply_temp = row_data[2].as<std::string>(),
-										v_returnMPC_temp = row_data[3].as<std::string>(),
-										v_timestamp = row_data[4].as<std::string>();
-
-					writer.StartObject();
-
-					writer.String(s_status.c_str(),s_status.length());
-					writer.String(v_status.c_str(),v_status.length());
-
-					writer.String(s_supply_temp.c_str(),s_supply_temp.length());
-					writer.String(v_supply_temp.c_str(),v_supply_temp.length());
-
-					writer.String(s_returnMPC_temp.c_str(),s_returnMPC_temp.length());
-					writer.String(v_returnMPC_temp.c_str(),v_returnMPC_temp.length());
-
-					writer.String(s_timestamp.c_str(),s_timestamp.length());
-					writer.String(v_timestamp.c_str(),v_timestamp.length());
-
-					writer.EndObject();
+					processGETOne(&s, &row_data);
 
 					auto mimeType = MIME(Application, Json);
 					response.send(Http::Code::Ok, s.GetString(), mimeType);
 
     			} else if ((request.resource().find("/num") != std::string::npos)) {
-    				const std::string req = request.resource();
-					int length = 0;
-					for(int i=req.length();req.c_str()[i]!='/';i--) {
-						length++;
-					}
-					int num = std::stoi(req.substr(req.length()-length+1, length-1));
+
+					int num = getIntFromRequest(request.resource());
 
 					pqxx::connection C(params.c_str());
 					pqxx::work W(C);
-
 					pqxx::result res = W.exec(
 							"SELECT * FROM exchanger ORDER BY id DESC LIMIT "
 									+ W.quote(num));
-
 					W.commit();
 
 					StringBuffer s;
-					Writer<StringBuffer> writer(s);
 
-					const std::string	s_status("status"),
-										s_supply_temp("supply_temp"),
-										s_returnMPC_temp("returnMPC_temp"),
-										s_timestamp("timestamp");
-
-					std::string	v_status,
-								v_supply_temp,
-								v_returnMPC_temp,
-								v_timestamp;
-
-					writer.StartArray();
-
-					for (auto row_data : res) {
-						writer.StartObject();
-						v_status = row_data[1].as<std::string>();
-						v_supply_temp = row_data[2].as<std::string>();
-						v_returnMPC_temp = row_data[3].as<std::string>();
-						v_timestamp = row_data[4].as<std::string>();
-
-						writer.String(s_status.c_str(),s_status.length());
-						writer.String(v_status.c_str(),v_status.length());
-
-						writer.String(s_supply_temp.c_str(),s_supply_temp.length());
-						writer.String(v_supply_temp.c_str(),v_supply_temp.length());
-
-						writer.String(s_returnMPC_temp.c_str(),s_returnMPC_temp.length());
-						writer.String(v_returnMPC_temp.c_str(),v_returnMPC_temp.length());
-
-						writer.String(s_timestamp.c_str(),s_timestamp.length());
-						writer.String(v_timestamp.c_str(),v_timestamp.length());
-
-						writer.EndObject();
-					}
-
-					writer.EndArray();
+					processGETMany(&s, &res);
 
 					auto mimeType = MIME(Application, Json);
 					response.send(Http::Code::Ok, s.GetString(), mimeType);
@@ -186,50 +206,162 @@ public:
 					W.commit();
 
 					StringBuffer s;
-					Writer<StringBuffer> writer(s);
 
-					const std::string	s_status("status"),
-										s_supply_temp("supply_temp"),
-										s_returnMPC_temp("returnMPC_temp"),
-										s_timestamp("timestamp");
-
-					std::string	v_status,
-								v_supply_temp,
-								v_returnMPC_temp,
-								v_timestamp;
-
-					writer.StartArray();
-
-					for (auto row_data : res) {
-						writer.StartObject();
-						v_status = row_data[1].as<std::string>();
-						v_supply_temp = row_data[2].as<std::string>();
-						v_returnMPC_temp = row_data[3].as<std::string>();
-						v_timestamp = row_data[4].as<std::string>();
-
-						writer.String(s_status.c_str(),s_status.length());
-						writer.String(v_status.c_str(),v_status.length());
-
-						writer.String(s_supply_temp.c_str(),s_supply_temp.length());
-						writer.String(v_supply_temp.c_str(),v_supply_temp.length());
-
-						writer.String(s_returnMPC_temp.c_str(),s_returnMPC_temp.length());
-						writer.String(v_returnMPC_temp.c_str(),v_returnMPC_temp.length());
-
-						writer.String(s_timestamp.c_str(),s_timestamp.length());
-						writer.String(v_timestamp.c_str(),v_timestamp.length());
-
-						writer.EndObject();
-					}
-
-					writer.EndArray();
+					processGETMany(&s, &res);
 
 					auto mimeType = MIME(Application, Json);
 					response.send(Http::Code::Ok, s.GetString(), mimeType);
 
     			}
-    		} else {
-    			response.send(Http::Code::Not_Found, "Called nonexistent resource\n");
+    		} else if(request.resource().find("/controler") != std::string::npos ) {
+    			if(request.resource().find("/id") != std::string::npos) {
+    				int id = getIntFromRequest(request.resource());
+
+					pqxx::connection C(params.c_str());
+					pqxx::work W(C);
+					pqxx::result row_data = W.exec(
+							"SELECT * FROM controler WHERE id = "
+									+ W.quote(id));
+					W.commit();
+
+					StringBuffer s;
+
+					processGETOne(&s, &row_data);
+
+					auto mimeType = MIME(Application, Json);
+					response.send(Http::Code::Ok, s.GetString(), mimeType);
+
+				} else if ((request.resource().find("/num") != std::string::npos)) {
+					int num = getIntFromRequest(request.resource());
+
+					pqxx::connection C(params.c_str());
+					pqxx::work W(C);
+					pqxx::result res = W.exec(
+							"SELECT * FROM controler ORDER BY id DESC LIMIT "
+									+ W.quote(num));
+					W.commit();
+
+					StringBuffer s;
+
+					processGETMany(&s, &res);
+
+					auto mimeType = MIME(Application, Json);
+					response.send(Http::Code::Ok, s.GetString(), mimeType);
+
+				} else {		// GET FULL LOG
+    				pqxx::connection C(params.c_str());
+					pqxx::work W(C);
+
+					pqxx::result res = W.exec(
+							"SELECT * FROM controler ORDER BY id DESC");
+
+					W.commit();
+
+					StringBuffer s;
+
+					processGETMany(&s, &res);
+
+					auto mimeType = MIME(Application, Json);
+					response.send(Http::Code::Ok, s.GetString(), mimeType);
+
+				}
+
+    		} else if(request.resource().find("/building") != std::string::npos ) {
+				if(request.resource().find("/id") != std::string::npos) {
+					int id = getIntFromRequest(request.resource());
+
+					pqxx::connection C(params.c_str());
+					pqxx::work W(C);
+					pqxx::result row_data = W.exec(
+							"SELECT * FROM controler WHERE id = "
+									+ W.quote(id));
+					W.commit();
+
+					StringBuffer s;
+
+					processGETOne(&s, &row_data);
+
+					auto mimeType = MIME(Application, Json);
+					response.send(Http::Code::Ok, s.GetString(), mimeType);
+
+				} else if ((request.resource().find("/num") != std::string::npos)) {
+					int num = getIntFromRequest(request.resource());
+
+					pqxx::connection C(params.c_str());
+					pqxx::work W(C);
+					pqxx::result res = W.exec(
+							"SELECT * FROM building  ORDER BY id DESC LIMIT "
+									+ W.quote(num));
+					W.commit();
+
+					StringBuffer s;
+
+					processGETMany(&s, &res);
+
+					auto mimeType = MIME(Application, Json);
+					response.send(Http::Code::Ok, s.GetString(), mimeType);
+
+				} else if ((request.resource().find("/tag") != std::string::npos)) {
+					std::string tag = getStrFromRequest(request.resource());
+
+					pqxx::connection C(params.c_str());
+					pqxx::work W(C);
+					pqxx::result res = W.exec(
+							"SELECT * FROM building "
+							"WHERE tag_name = " + W.quote(tag) +
+							" ORDER BY id DESC" );
+					W.commit();
+
+					StringBuffer s;
+
+					processGETMany(&s, &res);
+
+					auto mimeType = MIME(Application, Json);
+					response.send(Http::Code::Ok, s.GetString(), mimeType);
+
+				} else if ((request.resource().find("/taglast") != std::string::npos)) {
+					int num = getIntFromRequest(request.resource());
+					const std::string 	numS = std::to_string(num),
+										req_mod = request.resource().substr(0,
+									request.resource().length() - numS.length()-1);
+					std::string tag = getStrFromRequest(req_mod);
+
+					pqxx::connection C(params.c_str());
+					pqxx::work W(C);
+					pqxx::result res = W.exec(
+							"SELECT * FROM building "
+							"WHERE tag_name = " + W.quote(tag) +
+							" ORDER BY id DESC "
+							"LIMIT " + W.quote(num));
+					W.commit();
+
+					StringBuffer s;
+
+					processGETMany(&s, &res);
+
+					auto mimeType = MIME(Application, Json);
+					response.send(Http::Code::Ok, s.GetString(), mimeType);
+
+				} else {		// GET FULL LOG
+					pqxx::connection C(params.c_str());
+					pqxx::work W(C);
+
+					pqxx::result res = W.exec(
+							"SELECT * FROM building ORDER BY id DESC");
+
+					W.commit();
+
+					StringBuffer s;
+
+					processGETMany(&s, &res);
+
+					auto mimeType = MIME(Application, Json);
+					response.send(Http::Code::Ok, s.GetString(), mimeType);
+
+				}
+
+			} else {
+    			response.send(Http::Code::Not_Found, "Error 404: Called nonexistent resource");
     		}
     	} else {
     		response.send(Http::Code::Method_Not_Allowed,"Access denied");
@@ -246,10 +378,6 @@ int main() {
 	auto opts = Http::Endpoint::options()
 								.threads(1)
 								.flags(Tcp::Options::ReuseAddr);
-
-	std::cout << addr.host() << std::endl;
-
-//	pqxx::connection c("host = logs.cegwdkw512mn.us-east-2.rds.amazonaws.com dbname = logs_mk user = pkssAdmin password = pkssAdmin1");
 
 	pqxx::connection c(params.c_str());
 

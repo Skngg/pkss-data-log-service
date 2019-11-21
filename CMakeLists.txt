@@ -9,6 +9,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 ADD_LIBRARY(LibsModule 
     "src/HeatExchangerData.cpp"
+    "src/ControllerData.cpp"
+    "src/BuildingData.cpp"
     "src/JSONData.cpp"
 )
 

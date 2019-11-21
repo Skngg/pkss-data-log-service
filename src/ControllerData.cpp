@@ -1,16 +1,17 @@
-#include "HeatExchangerData.hpp"
-#include <iostream>
+#include "ControllerData.hpp"
 
 using namespace rapidjson;
 
-void HeatExchangerData::insertLastIntoDB() {
+void ControllerData::insertLastIntoDB() {
 
 
 
 	pqxx::connection C(params.c_str());
 	pqxx::work W(C);
 
-	std::string cmd =	"INSERT INTO exchanger (status, supply_temp, returnMPC_temp, timestamp) "
+
+	std::string cmd =	"INSERT INTO controler"
+						"(status, incoming_water_temp_Tzco, set_temp_Tzcoref, valve, timestamp) "
 						"VALUES (";
 
 	for (auto it : parsed_data) {
@@ -24,16 +25,17 @@ void HeatExchangerData::insertLastIntoDB() {
 	W.commit();
 }
 
-void HeatExchangerData::initDBTable() {
+void ControllerData::initDBTable() {
 	pqxx::connection C(params.c_str());
 	pqxx::work W(C);
 
 	std::string cmd =
-			"CREATE TABLE exchanger ("
+			"CREATE TABLE controler ("
 			"id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, "
 			"status VARCHAR(20), "
-			"supply_temp VARCHAR(20), "
-			"returnMPC_temp VARCHAR(20), "
+			"incoming_water_temp_Tzco VARCHAR(20), "
+			"set_temp_Tzcoref VARCHAR(20), "
+			"valve VARCHAR(20), "
 			"timestamp VARCHAR(40)"
 			");";
 
