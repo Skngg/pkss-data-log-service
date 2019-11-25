@@ -6,16 +6,19 @@
 #include <pqxx/pqxx>
 
 
+#include "BuildingData.hpp"
+#include "ProviderData.hpp"
 #include "HeatExchangerData.hpp"
 #include "ControllerData.hpp"
-#include "BuildingData.hpp"
 
 using namespace Pistache;
 using namespace rapidjson;
 
+BuildingData buildings;
+ProviderData provider;
 HeatExchangerData heatex;
 ControllerData controller;
-BuildingData buildings;
+
 
 std::string processPOST(JSONData* instance, std::string body) {
 	instance->acquireData(body.c_str());
@@ -79,8 +82,6 @@ void processGETMany(StringBuffer* s, pqxx::result* res_data) {
 	}
 	writer.EndArray();
 }
-
-
 
 int getIntFromRequest(std::string request) {
 	int length = 0;
@@ -151,7 +152,21 @@ public:
 
 				auto res = response.send(Http::Code::Ok,s_response.c_str());
 
-    		} else {
+    		} else if (request.resource() == "/provider/log") {
+
+				try {
+					body = request.body();
+					if (body == "")
+						throw "JSON error";
+				} catch (...){
+					auto res = response.send(Http::Code::Unprocessable_Entity,"Error while parsing JSON");
+					return;
+				}
+				const std::string s_response = processPOST(&provider, body);
+
+				auto res = response.send(Http::Code::Ok,s_response.c_str());
+
+			} else {
     			response.send(Pistache::Http::Code::Not_Found,"Error 404: Called nonexistent resource");
     		}
 
@@ -360,6 +375,59 @@ public:
 
 				}
 
+    		} else if(request.resource().find("/provider") != std::string::npos ) {
+				if(request.resource().find("/id") != std::string::npos) {
+					int id = getIntFromRequest(request.resource());
+
+					pqxx::connection C(params.c_str());
+					pqxx::work W(C);
+					pqxx::result row_data = W.exec(
+							"SELECT * FROM provider WHERE id = "
+									+ W.quote(id));
+					W.commit();
+
+					StringBuffer s;
+
+					processGETOne(&s, &row_data);
+
+					auto mimeType = MIME(Application, Json);
+					response.send(Http::Code::Ok, s.GetString(), mimeType);
+
+				} else if ((request.resource().find("/num") != std::string::npos)) {
+					int num = getIntFromRequest(request.resource());
+
+					pqxx::connection C(params.c_str());
+					pqxx::work W(C);
+					pqxx::result res = W.exec(
+							"SELECT * FROM provider ORDER BY id DESC LIMIT "
+									+ W.quote(num));
+					W.commit();
+
+					StringBuffer s;
+
+					processGETMany(&s, &res);
+
+					auto mimeType = MIME(Application, Json);
+					response.send(Http::Code::Ok, s.GetString(), mimeType);
+
+				} else {		// GET FULL LOG
+					pqxx::connection C(params.c_str());
+					pqxx::work W(C);
+
+					pqxx::result res = W.exec(
+							"SELECT * FROM provider ORDER BY id DESC");
+
+					W.commit();
+
+					StringBuffer s;
+
+					processGETMany(&s, &res);
+
+					auto mimeType = MIME(Application, Json);
+					response.send(Http::Code::Ok, s.GetString(), mimeType);
+
+				}
+
 			} else {
     			response.send(Http::Code::Not_Found, "Error 404: Called nonexistent resource");
     		}
@@ -376,7 +444,7 @@ int main() {
 
 	Address addr(IP(0,0,0,0),Port(8080));
 	auto opts = Http::Endpoint::options()
-								.threads(1)
+								.threads(2)
 								.flags(Tcp::Options::ReuseAddr);
 
 	pqxx::connection c(params.c_str());
