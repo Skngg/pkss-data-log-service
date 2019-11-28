@@ -19,6 +19,12 @@ ProviderData provider;
 HeatExchangerData heatex;
 ControllerData controller;
 
+void clearMem() {
+	buildings.purgeAll();
+	provider.purgeAll();
+	heatex.purgeAll();
+	controller.purgeAll();
+}
 
 std::string processPOST(JSONData* instance, std::string body) {
 	instance->acquireData(body.c_str());
@@ -441,10 +447,13 @@ public:
 				pqxx::connection C(params.c_str());
 				pqxx::work W(C);
 
+				clearMem();
+
 				clearTableDB(&W,"controler");
 				clearTableDB(&W,"exchanger");
 				clearTableDB(&W,"building");
 				clearTableDB(&W,"provider");
+
 
 				W.commit();
 
