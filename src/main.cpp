@@ -28,17 +28,24 @@ void clearMem() {
 
 std::string processPOST(JSONData* instance, std::string body) {
 	instance->acquireData(body.c_str());
+	std::string ret;
 	try {
 		instance->insertLastIntoDB();
 	} catch (const pqxx::sql_error &ex) {
-
 		std::cerr << "Exception thrown: " << ex.what() << std::endl;
-		try {
-			instance->initDBTable();
-		} catch (...) {}
-		instance->insertLastIntoDB();
+		if ( std::string(ex.what()).find("INSERT has more expressions than target columns") != std::string::npos ) {
+			instance->purgeAll();
+			ret = "Error while parsing JSON. Entry not logged";
+			return ret;
+		} else {
+			try {
+				instance->initDBTable();
+			} catch (...) {}
+			instance->insertLastIntoDB();
+		}
+
 	}
-	const std::string ret = "Data logged with timestamp: " + instance->getTimestamp();
+	ret = "Data logged with timestamp: " + instance->getTimestamp();
 	instance->purgeAll();
 	return ret;
 
