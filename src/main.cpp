@@ -100,6 +100,11 @@ std::string getStrFromRequest(std::string request) {
 	return request.substr(request.length()-length+1, length-1);
 }
 
+void clearTableDB(pqxx::work* W,const std::string table) {
+	std::string cmd = "TRUNCATE " + table + " RESTART IDENTITY;";
+	W->exec0(cmd);
+}
+
 class TestHandler : public Http::Handler {
 private:
 	std::string body;
@@ -428,7 +433,21 @@ public:
 
 				}
 
+			} else if (request.resource() == "/reset") {
+
+				pqxx::connection C(params.c_str());
+				pqxx::work W(C);
+
+				clearTableDB(&W,"controler");
+				clearTableDB(&W,"exchanger");
+				clearTableDB(&W,"building");
+				clearTableDB(&W,"provider");
+
+				W.commit();
+
+				response.send(Http::Code::Ok, "All tables cleared and reset");
 			} else {
+
     			response.send(Http::Code::Not_Found, "Error 404: Called nonexistent resource");
     		}
     	} else {
