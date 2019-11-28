@@ -24,11 +24,14 @@ std::string processPOST(JSONData* instance, std::string body) {
 	instance->acquireData(body.c_str());
 	try {
 		instance->insertLastIntoDB();
-	} catch (const std::exception &) {
-		instance->initDBTable();
+	} catch (const pqxx::sql_error &ex) {
+
+		std::cerr << "Exception thrown: " << ex.what() << std::endl;
+		try {
+			instance->initDBTable();
+		} catch (...) {}
 		instance->insertLastIntoDB();
 	}
-
 	const std::string ret = "Data logged with timestamp: " + instance->getTimestamp();
 	instance->purgeAll();
 	return ret;
@@ -102,7 +105,7 @@ std::string getStrFromRequest(std::string request) {
 
 void clearTableDB(pqxx::work* W,const std::string table) {
 	std::string cmd = "TRUNCATE " + table + " RESTART IDENTITY;";
-	W->exec0(cmd);
+	W->exec(cmd);
 }
 
 class TestHandler : public Http::Handler {
@@ -447,7 +450,6 @@ public:
 
 				response.send(Http::Code::Ok, "All tables cleared and reset");
 			} else {
-
     			response.send(Http::Code::Not_Found, "Error 404: Called nonexistent resource");
     		}
     	} else {

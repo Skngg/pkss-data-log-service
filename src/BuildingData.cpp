@@ -22,7 +22,7 @@ void BuildingData::insertLastIntoDB() {
 	cmd.erase(cmd.end()-2,cmd.end()-1);
 	cmd+= ")";
 
-	W.exec0(cmd);
+	W.exec(cmd);
 
 	W.commit();
 }
