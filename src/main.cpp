@@ -130,7 +130,7 @@ public:
 
     void onRequest(const Http::Request& request, Http::ResponseWriter response) override {
     	if (request.method() == Http::Method::Post) {
-    		if (request.resource() == "/exchanger/log") {
+    		if (request.resource().find("/exchanger/log") != std::string::npos ) {
 
     			try {
     				body = request.body();
@@ -145,7 +145,7 @@ public:
 
     			auto res = response.send(Http::Code::Ok,s_response.c_str());
 
-    		} else if (request.resource() == "/controler/log") {
+    		} else if (request.resource().find("/controler/log") != std::string::npos ) {
 
     			try {
 					body = request.body();
@@ -159,7 +159,7 @@ public:
 
 				auto res = response.send(Http::Code::Ok,s_response.c_str());
 
-    		} else if (request.resource() == "/building/log") {
+    		} else if (request.resource().find("/building/log") != std::string::npos) {
 
     			try {
 					body = request.body();
@@ -173,7 +173,7 @@ public:
 
 				auto res = response.send(Http::Code::Ok,s_response.c_str());
 
-    		} else if (request.resource() == "/provider/log") {
+    		} else if (request.resource().find("/provider/log") != std::string::npos ) {
 
 				try {
 					body = request.body();
