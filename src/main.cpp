@@ -211,7 +211,7 @@ public:
 					auto mimeType = MIME(Application, Json);
 					response.send(Http::Code::Ok, s.GetString(), mimeType);
 
-    			} else if ((request.resource().find("/num") != std::string::npos)) {
+    			} else if ((request.resource().find("/last") != std::string::npos)) {
 
 					int num = getIntFromRequest(request.resource());
 
@@ -267,7 +267,7 @@ public:
 					auto mimeType = MIME(Application, Json);
 					response.send(Http::Code::Ok, s.GetString(), mimeType);
 
-				} else if ((request.resource().find("/num") != std::string::npos)) {
+				} else if ((request.resource().find("/last") != std::string::npos)) {
 					int num = getIntFromRequest(request.resource());
 
 					pqxx::connection C(params.c_str());
@@ -320,7 +320,7 @@ public:
 					auto mimeType = MIME(Application, Json);
 					response.send(Http::Code::Ok, s.GetString(), mimeType);
 
-				} else if ((request.resource().find("/num") != std::string::npos)) {
+				} else if ((request.resource().find("/last") != std::string::npos)) {
 					int num = getIntFromRequest(request.resource());
 
 					pqxx::connection C(params.c_str());
@@ -414,7 +414,7 @@ public:
 					auto mimeType = MIME(Application, Json);
 					response.send(Http::Code::Ok, s.GetString(), mimeType);
 
-				} else if ((request.resource().find("/num") != std::string::npos)) {
+				} else if ((request.resource().find("/last") != std::string::npos)) {
 					int num = getIntFromRequest(request.resource());
 
 					pqxx::connection C(params.c_str());
