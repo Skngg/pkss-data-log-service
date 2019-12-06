@@ -10,11 +10,23 @@ void BuildingData::insertLastIntoDB() {
 	pqxx::work W(C);
 
 
-	std::string cmd =	"INSERT INTO building"
-						"(status, tag_name, water_intake_Fcob, "
-						"return_water_temp_Tpcob, radiator_temp_Th, "
-						"room_temp_Tr, timestamp) "
-						"VALUES (";
+//	std::string cmd =	"INSERT INTO building"
+//						"(status, tag_name, water_intake_Fcob, "
+//						"return_water_temp_Tpcob, radiator_temp_Th, "
+//						"room_temp_Tr, timestamp) "
+//						"VALUES (";
+
+	std::string cmd =	"INSERT INTO building (";
+	for(auto it : parsed_data) {
+		cmd += it.first;
+		if(it.first != (--parsed_data.end())->first) {
+			cmd += ", ";
+		} else {
+			cmd+=") ";
+		}
+	}
+
+	cmd+="VALUES (";
 
 	for (auto it : parsed_data) {
 		cmd += W.quote(it.second) +", ";

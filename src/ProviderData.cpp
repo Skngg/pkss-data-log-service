@@ -8,9 +8,20 @@ void ProviderData::insertLastIntoDB() {
 	pqxx::work W(C);
 
 
-	std::string cmd =	"INSERT INTO provider"
-						"(status, warm_water_stream_Fzm, incoming_water_temp_Tzm, outside_temp_To, failure, timestamp) "
-						"VALUES (";
+//	std::string cmd =	"INSERT INTO provider"
+//						"(status, warm_water_stream_Fzm, incoming_water_temp_Tzm, outside_temp_To, failure, timestamp) "
+//						"VALUES (";
+	std::string cmd =	"INSERT INTO provider (";
+	for(auto it : parsed_data) {
+		cmd += it.first;
+		if(it.first != (--parsed_data.end())->first) {
+			cmd += ", ";
+		} else {
+			cmd+=") ";
+		}
+	}
+
+	cmd+="VALUES (";
 
 	for (auto it : parsed_data) {
 		cmd += W.quote(it.second) +", ";

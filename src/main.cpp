@@ -309,7 +309,7 @@ public:
 					pqxx::connection C(params.c_str());
 					pqxx::work W(C);
 					pqxx::result row_data = W.exec(
-							"SELECT * FROM controler WHERE id = "
+							"SELECT * FROM building WHERE id = "
 									+ W.quote(id));
 					W.commit();
 

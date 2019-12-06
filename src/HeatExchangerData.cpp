@@ -10,8 +10,20 @@ void HeatExchangerData::insertLastIntoDB() {
 	pqxx::connection C(params.c_str());
 	pqxx::work W(C);
 
-	std::string cmd =	"INSERT INTO exchanger (status, supply_temp, returnMPC_temp, timestamp) "
-						"VALUES (";
+//	std::string cmd =	"INSERT INTO exchanger (status, supply_temp, returnMPC_temp, timestamp) "
+//						"VALUES (";
+
+	std::string cmd =	"INSERT INTO exchanger (";
+	for(auto it : parsed_data) {
+		cmd += it.first;
+		if(it.first != (--parsed_data.end())->first) {
+			cmd += ", ";
+		} else {
+			cmd+=") ";
+		}
+	}
+
+	cmd+="VALUES (";
 
 	for (auto it : parsed_data) {
 		cmd += W.quote(it.second) +", ";
